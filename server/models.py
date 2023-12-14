@@ -18,32 +18,39 @@ db = SQLAlchemy(metadata=metadata)
 
 
 class Activity(db.Model, SerializerMixin):
-    __tablename__ = 'activities'
+    __tablename__ = 'activities_table'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
     difficulty = db.Column(db.Integer)
 
-    # Add relationship
+    signups = db.relationship('Signup', back_populates='activity', cascade='all, delete-orphan')
+    campers = association_proxy('signups', 'camper')
     
-    # Add serialization rules
+    serialize_rules=('-signups.activity',)
     
     def __repr__(self):
         return f'<Activity {self.id}: {self.name}>'
 
 
 class Camper(db.Model, SerializerMixin):
-    __tablename__ = 'campers'
+    __tablename__ = 'campers_table'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False)
     age = db.Column(db.Integer)
 
-    # Add relationship
+    signups = db.relationship('Signup', back_populates='camper', cascade='all, delete-orphan')
+    activities = association_proxy('signups', 'activity')
     
-    # Add serialization rules
-    
-    # Add validation
+    serialize_rules=('-signups.camper',)
+        
+    @validates('age')
+    def validate_age(self, key, value):
+        if 8 <= value <= 18:
+            return value
+        else:
+            return {'error': ['validation errors']}
     
     
     def __repr__(self):
@@ -56,11 +63,20 @@ class Signup(db.Model, SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     time = db.Column(db.Integer)
 
-    # Add relationships
+    camper_id = db.Column(db.Integer, db.ForeignKey('campers_table.id'), nullable=False)
+    activity_id = db.Column(db.Integer, db.ForeignKey('activities_table.id'), nullable=False)
     
-    # Add serialization rules
+    activity = db.relationship('Activity', back_populates='signups')
+    camper = db.relationship('Camper', back_populates='signups')
+
+    serialize_rules=('-activity.signups', '-camper.signups',)
+
     
-    # Add validation
+    @validates('time')
+    def validate_time(self, key, value):
+        if 0 <= value <= 23:
+            return value
+        return {'error': ['validation errors']}
     
     def __repr__(self):
         return f'<Signup {self.id}>'
